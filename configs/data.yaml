@@ -1,13 +1,18 @@
 dataset:
-  name: pending
-  version: "0.1.0"
+  name: TUD-GV Floating Litter
+  version: "1.0"
 
 paths:
-  raw: data/raw
-  interim: data/interim
-  processed: data/processed
+  raw: data/raw/tud_gv
+  interim: data/interim/tud_gv
+  processed: data/processed/tud_gv
 
 split:
   train: 0.70
   validation: 0.15
   test: 0.15
+
+classes:
+  0: litter
+
+seed: 42
