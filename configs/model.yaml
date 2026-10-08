@@ -1,0 +1,11 @@
+detection:
+  framework: ultralytics
+  architecture: pending
+  weights: pending
+
+  image_size: 640
+  confidence_threshold: 0.35
+  iou_threshold: 0.50
+
+segmentation:
+  architecture: pending

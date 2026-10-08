@@ -1,0 +1,13 @@
+dataset:
+  name: pending
+  version: "0.1.0"
+
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed
+
+split:
+  train: 0.70
+  validation: 0.15
+  test: 0.15

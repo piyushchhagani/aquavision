@@ -1,0 +1,17 @@
+experiment:
+  name: baseline
+  seed: 42
+
+training:
+  epochs: 30
+  batch_size: 16
+  optimizer: auto
+  learning_rate: auto
+
+evaluation:
+  metrics:
+    - precision
+    - recall
+    - f1
+    - map50
+    - map50_95
