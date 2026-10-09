@@ -68,3 +68,6 @@ models/*
 *.key
 credentials.json
 token.json
+
+# Generated detection experiment outputs
+outputs/detection/
