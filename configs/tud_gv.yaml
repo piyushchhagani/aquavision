@@ -1,8 +1,6 @@
 path: /content/aquavision/data/processed/tud_gv
-
 train: images/train
 val: images/val
 test: images/test
-
 names:
   0: litter
