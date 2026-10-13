@@ -1,9 +1,11 @@
+
 import numpy as np
 import pytest
 
 from aquavision.water.mask import (
     validate_water_mask,
     calculate_water_coverage,
+    segment_water_hsv,
 )
 
 
@@ -43,3 +45,19 @@ def test_mask_must_be_binary():
 def test_mask_rejects_nan():
     with pytest.raises(ValueError, match="NaN"):
         validate_water_mask(np.array([[0.0, np.nan]]))
+
+
+def test_segment_water_hsv_returns_binary_mask():
+    image = np.full((20, 30, 3), 100, dtype=np.uint8)
+    mask = segment_water_hsv(image)
+
+    assert mask.shape == (20, 30)
+    assert mask.dtype == np.bool_
+    assert mask.all()
+
+
+def test_segment_water_hsv_rejects_grayscale():
+    image = np.zeros((20, 30), dtype=np.uint8)
+
+    with pytest.raises(ValueError):
+        segment_water_hsv(image)

@@ -1,5 +1,7 @@
-"""Validation and coverage utilities for binary water masks."""
 
+"""Water-mask validation, baseline segmentation, and coverage utilities."""
+
+import cv2
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
@@ -28,3 +30,30 @@ def validate_water_mask(mask: ArrayLike) -> NDArray[np.bool_]:
 def calculate_water_coverage(mask: ArrayLike) -> float:
     """Return the percentage of pixels marked as water."""
     return float(validate_water_mask(mask).mean() * 100.0)
+
+
+def segment_water_hsv(image: ArrayLike) -> NDArray[np.bool_]:
+    """Create an exploratory HSV water mask from a BGR image.
+
+    This color-threshold baseline is not a trained segmentation model.
+    Its output requires validation against manually annotated water masks.
+    """
+    array = np.asarray(image)
+
+    if array.size == 0:
+        raise ValueError("Image must not be empty.")
+    if array.ndim != 3 or array.shape[2] != 3:
+        raise ValueError("Image must be a 3-channel BGR image.")
+    if array.dtype != np.uint8:
+        raise ValueError("Image must use uint8 pixel values.")
+
+    hsv = cv2.cvtColor(array, cv2.COLOR_BGR2HSV)
+
+    # Broad exploratory threshold; reflections and dark water may be misclassified.
+    mask = cv2.inRange(
+        hsv,
+        np.array([0, 0, 20], dtype=np.uint8),
+        np.array([179, 100, 220], dtype=np.uint8),
+    )
+
+    return mask > 0
