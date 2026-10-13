@@ -2,7 +2,9 @@
 """Reusable image inference for AquaVision."""
 
 from pathlib import Path
+import json
 import time
+
 import cv2
 from ultralytics import YOLO
 
@@ -35,6 +37,7 @@ class AquaVisionDetector:
         result = self.model.predict(
             source=str(image_path),
             conf=self.confidence,
+            iou=0.5,
             imgsz=self.image_size,
             device=self.device,
             verbose=False,
@@ -49,8 +52,15 @@ class AquaVisionDetector:
             confidence = float(box.conf[0].cpu().item())
             class_id = int(box.cls[0].cpu().item())
 
-            x1, x2 = sorted((max(0.0, min(x1, width)), max(0.0, min(x2, width))))
-            y1, y2 = sorted((max(0.0, min(y1, height)), max(0.0, min(y2, height))))
+            x1, x2 = sorted((
+                max(0.0, min(x1, width)),
+                max(0.0, min(x2, width)),
+            ))
+            y1, y2 = sorted((
+                max(0.0, min(y1, height)),
+                max(0.0, min(y2, height)),
+            ))
+
             bbox_area = max(0.0, x2 - x1) * max(0.0, y2 - y1)
             total_bbox_area += bbox_area
 
@@ -58,7 +68,7 @@ class AquaVisionDetector:
                 "class_id": class_id,
                 "class_name": result.names[class_id],
                 "confidence": round(confidence, 6),
-                "bbox_xyxy": [round(x, 2) for x in [x1, y1, x2, y2]],
+                "bbox_xyxy": [round(v, 2) for v in (x1, y1, x2, y2)],
                 "bbox_area_pixels": round(bbox_area, 2),
                 "bbox_image_area_ratio_percent": round(
                     100.0 * bbox_area / (width * height), 6
@@ -68,13 +78,13 @@ class AquaVisionDetector:
         annotated_path = output_dir / f"{image_path.stem}_annotated.jpg"
         result.save(filename=str(annotated_path))
 
-        # Sum of box areas may double-count overlaps; it is NOT pollution coverage.
         data = {
             "image": image_path.name,
             "image_width": width,
             "image_height": height,
             "model": Path(self.weights_path).name,
             "confidence_threshold": self.confidence,
+            "iou_threshold": 0.5,
             "detection_count": len(detections),
             "detections": detections,
             "sum_bbox_area_ratio_percent": round(
@@ -82,10 +92,14 @@ class AquaVisionDetector:
             ),
             "inference_wall_time_ms": round(wall_time_ms, 3),
             "annotated_image": str(annotated_path),
+            "note": (
+                "Summed bounding-box area is not water-pollution coverage "
+                "and may double-count overlapping boxes."
+            ),
         }
 
         json_path = output_dir / f"{image_path.stem}_results.json"
-        json_path.write_text(__import__("json").dumps(data, indent=2))
-
+        json_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         data["results_json"] = str(json_path)
+
         return data
