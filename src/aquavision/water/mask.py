@@ -1,5 +1,9 @@
 
-"""Water-mask validation, baseline segmentation, and coverage utilities."""
+"""Water-mask validation and coverage utilities.
+
+HSV segmentation is experimental and must not be treated as
+reliable water or pollution segmentation.
+"""
 
 import cv2
 import numpy as np
@@ -33,11 +37,7 @@ def calculate_water_coverage(mask: ArrayLike) -> float:
 
 
 def segment_water_hsv(image: ArrayLike) -> NDArray[np.bool_]:
-    """Create an exploratory HSV water mask from a BGR image.
-
-    This color-threshold baseline is not a trained segmentation model.
-    Its output requires validation against manually annotated water masks.
-    """
+    """Return an experimental HSV mask; not reliable for water segmentation."""
     array = np.asarray(image)
 
     if array.size == 0:
@@ -48,12 +48,9 @@ def segment_water_hsv(image: ArrayLike) -> NDArray[np.bool_]:
         raise ValueError("Image must use uint8 pixel values.")
 
     hsv = cv2.cvtColor(array, cv2.COLOR_BGR2HSV)
-
-    # Broad exploratory threshold; reflections and dark water may be misclassified.
     mask = cv2.inRange(
         hsv,
         np.array([0, 0, 20], dtype=np.uint8),
         np.array([179, 100, 220], dtype=np.uint8),
     )
-
     return mask > 0
