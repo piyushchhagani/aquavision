@@ -72,3 +72,6 @@ token.json
 # Generated detection experiment outputs
 outputs/detection/
 src/aquavision.egg-info/
+
+# Generated API inference results
+/outputs/api_results/

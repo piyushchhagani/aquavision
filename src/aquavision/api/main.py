@@ -1,3 +1,4 @@
+
 """FastAPI endpoints for AquaVision litter detection."""
 
 import json
@@ -8,8 +9,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
+
 from aquavision.analytics.report import analyze_results
 from aquavision.detection.inference import AquaVisionDetector
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 app = FastAPI(
     title="AquaVision API",
@@ -27,10 +32,12 @@ ALLOWED_TYPES = {
 
 
 def get_output_dir() -> Path:
-    path = Path(os.getenv(
-        "AQUAVISION_OUTPUT_DIR",
-        "/content/drive/MyDrive/AquaVision/api_results",
-    ))
+    path = Path(
+        os.getenv(
+            "AQUAVISION_OUTPUT_DIR",
+            str(PROJECT_ROOT / "outputs" / "api_results"),
+        )
+    )
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -39,11 +46,12 @@ def get_detector():
     global _detector
 
     if _detector is None:
-        weights_path = Path(os.getenv(
-            "AQUAVISION_WEIGHTS",
-            "/content/drive/MyDrive/AquaVision/training_runs/"
-            "yolo11n_tud_gv_baseline/weights/best.pt",
-        ))
+        weights_path = Path(
+            os.getenv(
+                "AQUAVISION_WEIGHTS",
+                str(PROJECT_ROOT / "models" / "tud_gv_best.pt"),
+            )
+        )
 
         if not weights_path.is_file():
             raise FileNotFoundError(
@@ -75,13 +83,20 @@ async def predict(file: UploadFile = File(...)):
     content = await file.read()
 
     if not content:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty.",
+        )
 
     if len(content) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Image exceeds 15 MB.")
+        raise HTTPException(
+            status_code=413,
+            detail="Image exceeds 15 MB.",
+        )
 
     safe_name = re.sub(
-        r"[^A-Za-z0-9_.-]+", "_",
+        r"[^A-Za-z0-9_.-]+",
+        "_",
         Path(file.filename or "upload").stem,
     ).strip("._") or "upload"
 
@@ -100,7 +115,7 @@ async def predict(file: UploadFile = File(...)):
             output_dir=request_dir,
         )
 
-        # Keep returned artifact paths valid after the request completes.
+        # Return stable artifact paths after prediction completes.
         result["image"] = file.filename or input_path.name
         result["annotated_image"] = str(
             Path(result["annotated_image"]).resolve()
@@ -114,10 +129,14 @@ async def predict(file: UploadFile = File(...)):
             json.dumps(result, indent=2),
             encoding="utf-8",
         )
+
         return result
 
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=503,
+            detail=str(exc),
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=500,
