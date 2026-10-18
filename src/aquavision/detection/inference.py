@@ -19,7 +19,7 @@ class AquaVisionDetector:
         self.device = device
         self.model = YOLO(self.weights_path)
 
-    def predict(self, image_path, output_dir):
+    def predict(self, image_path, output_dir, confidence=None):
         image_path = Path(image_path)
         output_dir = Path(output_dir)
 
@@ -31,12 +31,18 @@ class AquaVisionDetector:
             raise ValueError(f"Cannot read image: {image_path}")
 
         height, width = image.shape[:2]
+        effective_confidence = (
+            self.confidence if confidence is None else float(confidence)
+        )
+        if not 0.01 <= effective_confidence <= 0.99:
+            raise ValueError('confidence must be between 0.01 and 0.99')
+
         output_dir.mkdir(parents=True, exist_ok=True)
 
         start = time.perf_counter()
         result = self.model.predict(
             source=str(image_path),
-            conf=self.confidence,
+            conf=effective_confidence,
             iou=0.5,
             imgsz=self.image_size,
             device=self.device,
@@ -83,7 +89,7 @@ class AquaVisionDetector:
             "image_width": width,
             "image_height": height,
             "model": Path(self.weights_path).name,
-            "confidence_threshold": self.confidence,
+            "confidence_threshold": effective_confidence,
             "iou_threshold": 0.5,
             "detection_count": len(detections),
             "detections": detections,

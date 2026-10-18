@@ -48,12 +48,21 @@ def test_mask_rejects_nan():
 
 
 def test_segment_water_hsv_returns_binary_mask():
-    image = np.full((20, 30, 3), 100, dtype=np.uint8)
+    image = np.zeros((40, 40, 3), dtype=np.uint8)
+    image[:] = [180, 120, 40]  # BGR blue-green candidate
     mask = segment_water_hsv(image)
 
-    assert mask.shape == (20, 30)
+    assert mask.shape == (40, 40)
     assert mask.dtype == np.bool_
     assert mask.all()
+
+
+def test_segment_water_hsv_rejects_neutral_gray():
+    image = np.full((40, 40, 3), 100, dtype=np.uint8)
+    mask = segment_water_hsv(image)
+
+    assert mask.shape == (40, 40)
+    assert not mask.any()
 
 
 def test_segment_water_hsv_rejects_grayscale():

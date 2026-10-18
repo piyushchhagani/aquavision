@@ -14,8 +14,9 @@ TIMEOUT = 180
 
 
 def request_json(method, endpoint, **kwargs):
+    timeout = kwargs.pop("timeout", TIMEOUT)
     response = requests.request(
-        method, f"{API_URL}{endpoint}", timeout=TIMEOUT, **kwargs
+        method, f"{API_URL}{endpoint}", timeout=timeout, **kwargs
     )
     response.raise_for_status()
     return response.json()
@@ -38,8 +39,11 @@ def detection_rows(results):
                 "Confidence": float(detection.get("confidence", 0)),
                 "Bounding box": json.dumps(box) if box is not None else "Unavailable",
                 "Area ratio (%)": detection.get(
-                    "bbox_area_ratio_percent",
-                    detection.get("area_ratio_percent"),
+                    "bbox_image_area_ratio_percent",
+                    detection.get(
+                        "bbox_area_ratio_percent",
+                        detection.get("area_ratio_percent"),
+                    ),
                 ),
             })
     return rows
@@ -82,8 +86,8 @@ border-radius: 12px; padding: 16px;}
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🌊 AquaVision")
-st.caption("Water-surface litter detection · Visual analysis · Exportable results")
+st.title("AquaVision")
+st.caption("Water-surface litter detection | Visual analysis | Exportable results")
 
 with st.sidebar:
     st.subheader("Workspace")
@@ -93,6 +97,16 @@ with st.sidebar:
         label_visibility="collapsed",
     )
     st.divider()
+    confidence = st.slider(
+        "Detection confidence",
+        min_value=0.10,
+        max_value=0.80,
+        value=0.35,
+        step=0.05,
+        help="Lower values show more candidate detections and may increase false positives.",
+    )
+    st.caption(f"Current threshold: {confidence:.2f}")
+
     st.caption("API endpoint")
     st.code(API_URL, language=None)
     if st.button("Check API connection", use_container_width=True):
@@ -139,6 +153,7 @@ if page == "Image analysis":
                 response = request_json(
                     "POST",
                     "/predict",
+                    data={"confidence": f"{confidence:.2f}"},
                     files={
                         "file": (
                             upload.name,
@@ -214,6 +229,87 @@ if page == "Image analysis":
                 st.image(annotated_path, use_container_width=True)
             else:
                 st.info("Annotated image path is not accessible to the dashboard process.")
+
+        st.subheader("Water Analysis (Experimental)")
+        st.warning(
+            result.get(
+                "water_mask_warning",
+                "Experimental HSV mask; results are not validated water or pollution measurements.",
+            )
+        )
+
+        mask_path = result.get("water_mask")
+        overlay_path = result.get("water_mask_overlay")
+        water_analysis = result.get("water_analysis", {})
+
+        mask_col, overlay_col = st.columns(2)
+        with mask_col:
+            st.markdown("**Water-candidate mask**")
+            if mask_path and Path(mask_path).is_file():
+                st.image(mask_path, use_container_width=True)
+            else:
+                st.info("Water mask image is unavailable.")
+
+        with overlay_col:
+            st.markdown("**Candidate mask overlay**")
+            if overlay_path and Path(overlay_path).is_file():
+                st.image(overlay_path, use_container_width=True)
+            else:
+                st.info("Water mask overlay is unavailable.")
+
+        metric_a, metric_b, metric_c = st.columns(3)
+        metric_a.metric(
+            "Candidate pixels",
+            f"{water_analysis.get('water_candidate_pixel_percent', result.get('water_mask_coverage_percent', 0)):.2f}%",
+        )
+        metric_b.metric(
+            "Valid detection boxes",
+            water_analysis.get("detections_with_valid_boxes", 0),
+        )
+        metric_c.metric(
+            "Centers inside candidate",
+            water_analysis.get("detection_centers_inside_water_candidate", 0),
+        )
+
+        st.caption(
+            "Center-point association is a spatial heuristic. "
+            "Candidate pixels are not validated water coverage or pollution area."
+        )
+
+        associated_detections = water_analysis.get("detections", [])
+        if associated_detections:
+            association_rows = []
+            for item in associated_detections:
+                association_rows.append({
+                    "Class": item.get("class_name", item.get("class", "litter")),
+                    "Confidence": item.get("confidence"),
+                    "Center in water candidate": item.get(
+                        "center_inside_water_candidate", False
+                    ),
+                    "Bounding box": (
+                        item.get("bbox_xyxy")
+                        or item.get("bbox")
+                        or item.get("box")
+                    ),
+                })
+            st.markdown("**Detection-to-mask association**")
+            st.dataframe(
+                pd.DataFrame(association_rows),
+                hide_index=True,
+                use_container_width=True,
+            )
+        elif result.get("detections"):
+            st.info(
+                "The API returned detections, but no compatible bounding boxes "
+                "were available for association."
+            )
+
+        api_ms = result.get("api_processing_time_ms")
+        if api_ms is not None:
+            st.caption(
+                f"API processing time: {api_ms:.1f} ms "
+                "(includes model inference and analysis processing)"
+            )
 
         st.subheader("Detection details")
         rows = detection_rows([result])

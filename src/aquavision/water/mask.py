@@ -37,7 +37,7 @@ def calculate_water_coverage(mask: ArrayLike) -> float:
 
 
 def segment_water_hsv(image: ArrayLike) -> NDArray[np.bool_]:
-    """Return an experimental HSV mask; not reliable for water segmentation."""
+    """Create an experimental HSV water-candidate mask."""
     array = np.asarray(image)
 
     if array.size == 0:
@@ -48,9 +48,13 @@ def segment_water_hsv(image: ArrayLike) -> NDArray[np.bool_]:
         raise ValueError("Image must use uint8 pixel values.")
 
     hsv = cv2.cvtColor(array, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(
-        hsv,
-        np.array([0, 0, 20], dtype=np.uint8),
-        np.array([179, 100, 220], dtype=np.uint8),
-    )
+
+    lower = np.array([65, 30, 25], dtype=np.uint8)
+    upper = np.array([115, 255, 255], dtype=np.uint8)
+    mask = cv2.inRange(hsv, lower, upper)
+
+    kernel = np.ones((5, 5), dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
     return mask > 0
