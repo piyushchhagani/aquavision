@@ -1,4 +1,4 @@
-﻿
+
 """FastAPI endpoints for AquaVision litter detection."""
 
 import json
@@ -49,16 +49,17 @@ def get_detector():
     global _detector
 
     if _detector is None:
-        weights_path = Path(
-            os.getenv(
-                "AQUAVISION_WEIGHTS",
-                str(PROJECT_ROOT / "models" / "tud_gv_best.pt"),
-            )
-        )
+        weights_env = os.getenv("AQUAVISION_WEIGHTS")
+        if weights_env:
+            weights_path = Path(weights_env)
+        else:
+            default_weights = PROJECT_ROOT / "models" / "tud_gv_best.pt"
+            fallback_weights = PROJECT_ROOT / "models" / "yolo11n.pt"
+            weights_path = default_weights if default_weights.is_file() else fallback_weights
 
         if not weights_path.is_file():
             raise FileNotFoundError(
-                f"Model weights not found: {weights_path}"
+                f"Model weights not found: {weights_path}. Place trained weights at models/tud_gv_best.pt or specify AQUAVISION_WEIGHTS."
             )
 
         _detector = AquaVisionDetector(
