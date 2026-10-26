@@ -70,6 +70,14 @@ def json_bytes(value):
     return json.dumps(value, indent=2, ensure_ascii=False).encode("utf-8")
 
 
+def render_image(image, **kwargs):
+    """Safely render an image across different Streamlit versions."""
+    try:
+        st.image(image, use_column_width=True, **kwargs)
+    except TypeError:
+        st.image(image, use_container_width=True, **kwargs)
+
+
 st.set_page_config(
     page_title="AquaVision",
     page_icon="🌊",
@@ -116,10 +124,13 @@ with st.sidebar:
         except requests.RequestException as exc:
             st.error(f"API unavailable: {exc}")
 
-if "results" not in st.session_state:
-    st.session_state.results = []
-if "selected_names" not in st.session_state:
-    st.session_state.selected_names = []
+try:
+    if "results" not in st.session_state:
+        st.session_state.results = []
+    if "selected_names" not in st.session_state:
+        st.session_state.selected_names = []
+except Exception:
+    pass
 
 if page == "Image analysis":
     st.header("Analyze images")
@@ -184,7 +195,7 @@ if page == "Image analysis":
         if new_results:
             st.success(f"Analysis completed for {len(new_results)} image(s).")
 
-    results = st.session_state.results
+    results = getattr(st.session_state, "results", [])
     if results:
         st.divider()
         st.subheader("Results")
@@ -218,15 +229,15 @@ if page == "Image analysis":
         left, right = st.columns([1, 1])
         with left:
             st.markdown("**Original image**")
-            st.image(uploads[selected].getvalue() if uploads and selected < len(uploads)
-                     and uploads[selected].name == result.get("image")
-                     else result.get("input_image", ""), use_container_width=True)
+            render_image(uploads[selected].getvalue() if uploads and selected < len(uploads)
+                         and uploads[selected].name == result.get("image")
+                         else result.get("input_image", ""))
 
         with right:
             st.markdown("**Annotated prediction**")
             annotated_path = result.get("annotated_image")
             if annotated_path and Path(annotated_path).is_file():
-                st.image(annotated_path, use_container_width=True)
+                render_image(annotated_path)
             else:
                 st.info("Annotated image path is not accessible to the dashboard process.")
 
@@ -246,14 +257,14 @@ if page == "Image analysis":
         with mask_col:
             st.markdown("**Water-candidate mask**")
             if mask_path and Path(mask_path).is_file():
-                st.image(mask_path, use_container_width=True)
+                render_image(mask_path)
             else:
                 st.info("Water mask image is unavailable.")
 
         with overlay_col:
             st.markdown("**Candidate mask overlay**")
             if overlay_path and Path(overlay_path).is_file():
-                st.image(overlay_path, use_container_width=True)
+                render_image(overlay_path)
             else:
                 st.info("Water mask overlay is unavailable.")
 
@@ -343,7 +354,7 @@ if page == "Image analysis":
 
 elif page == "Batch analytics":
     st.header("Batch analytics")
-    results = st.session_state.results
+    results = getattr(st.session_state, "results", [])
 
     if not results:
         st.info("Analyze images first to populate batch analytics.")
